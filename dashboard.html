@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aqnos | Forensic Intelligence Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --bg-dark: #0f172a; --panel-bg: rgba(30, 41, 59, 0.7); }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: #e2e8f0; margin: 0; }
+        
+        .glass-panel { 
+            background: var(--panel-bg); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .accent-gradient { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        
+        /* Fix for Chart Containers */
+        .chart-container { position: relative; height: 250px; width: 100%; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; color: #1e293b !important; }
+            .glass-panel { background: white !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; }
+            .text-white { color: #0f172a !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <nav class="glass-panel sticky top-0 z-50 border-b border-white/10 px-6 py-4 no-print">
+        <div class="max-w-[1400px] mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 accent-gradient rounded flex items-center justify-center font-bold text-white">A</div>
+                <span class="text-xl font-bold tracking-tight text-white uppercase">Aqnos <span class="text-blue-500 font-light text-sm ml-1 lowercase tracking-normal">forensics</span></span>
+            </div>
+            <button id="downloadBtn" onclick="downloadPDF()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all active:scale-95">
+                Generate Audit PDF
+            </button>
+        </div>
+    </nav>
+
+    <div id="audit-content" class="max-w-[1400px] mx-auto px-6 mt-8 space-y-6">
+        
+        <div class="hidden print:block border-b border-slate-200 pb-6 mb-6">
+            <h1 class="text-3xl font-bold text-slate-900">Traffic Integrity Audit Report</h1>
+            <p class="text-slate-500">Aqnos Intelligence Engine • Verified Data</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel p-5 rounded-2xl border-t-2 border-blue-500">
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Total Audited Visits</p>
+                <h2 class="text-3xl font-bold text-white mt-1">124,802</h2>
+            </div>
+            <div class="glass-panel p-5 rounded-2xl border-t-2 border-emerald-500">
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Validated Human</p>
+                <h2 class="text-3xl font-bold text-emerald-400 mt-1">98,210</h2>
+            </div>
+            <div class="glass-panel p-5 rounded-2xl border-t-2 border-red-500">
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Verified Invalid (IVT)</p>
+                <h2 class="text-3xl font-bold text-red-500 mt-1">8,152</h2>
+            </div>
+            <div class="glass-panel p-5 rounded-2xl border-t-2 border-amber-500">
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Suspicious (SIVT)</p>
+                <h2 class="text-3xl font-bold text-amber-500 mt-1">18,440</h2>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 rounded-2xl">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">IVT Concentration (24h Trend)</h3>
+                <div class="chart-container"><canvas id="hourlyChart"></canvas></div>
+            </div>
+            <div class="glass-panel p-6 rounded-2xl">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Device Category Risk</h3>
+                <div class="chart-container"><canvas id="deviceChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-panel rounded-2xl overflow-hidden">
+                <div class="p-4 border-b border-white/5 bg-white/5 font-bold text-[10px] uppercase tracking-widest text-slate-400">
+                    High-Volume IP Clusters
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-black/20 text-slate-500 text-[10px] uppercase">
+                            <tr>
+                                <th class="px-6 py-3">IP Address</th>
+                                <th class="px-6 py-3">Hits</th>
+                                <th class="px-6 py-3">Risk</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5">
+                            <tr class="hover:bg-white/5"><td class="px-6 py-4 font-mono">192.168.1.105</td><td class="px-6 py-4">1,204</td><td class="px-6 py-4 text-red-500 font-bold">High</td></tr>
+                            <tr class="hover:bg-white/5"><td class="px-6 py-4 font-mono">45.79.12.231</td><td class="px-6 py-4">856</td><td class="px-6 py-4 text-red-400 font-bold">High</td></tr>
+                            <tr class="hover:bg-white/5"><td class="px-6 py-4 font-mono">104.21.4.11</td><td class="px-6 py-4">432</td><td class="px-6 py-4 text-amber-500 font-bold">Med</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl overflow-hidden">
+                <div class="p-4 border-b border-white/5 bg-white/5 font-bold text-[10px] uppercase tracking-widest text-slate-400">
+                    Wastage by Landing Page
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-black/20 text-slate-500 text-[10px] uppercase">
+                            <tr>
+                                <th class="px-6 py-3">Target URL</th>
+                                <th class="px-6 py-3">IVT %</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5">
+                            <tr class="hover:bg-white/5"><td class="px-6 py-4 text-blue-400">/products/bundle-v1</td><td class="px-6 py-4 font-bold">14.2%</td></tr>
+                            <tr class="hover:bg-white/5"><td class="px-6 py-4 text-blue-400">/solutions/enterprise</td><td class="px-6 py-4 font-bold">9.8%</td></tr>
+                            <tr class="hover:bg-white/5"><td class="px-6 py-4 text-blue-400">/promo/summer-sale</td><td class="px-6 py-4 font-bold">18.5%</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-[1400px] mx-auto px-6 mt-12 no-print">
+        <div class="glass-panel p-8 rounded-3xl text-center border border-blue-500/20">
+            <h2 class="text-2xl font-bold text-white mb-2">Ready to secure your spend?</h2>
+            <p class="text-slate-400 text-sm mb-6">The Aqnos Truth Layer connects to your ad accounts in minutes.</p>
+            <div style="width:100%;height:500px;" data-fillout-id="t52YgH5taPus" data-fillout-embed-type="standard" data-fillout-inherit-parameters data-fillout-dynamic-resize></div><script src="https://server.fillout.com/embed/v1/"></script>
+        </div>
+    </div>
+
+    <script>
+        // Use DOMContentLoaded to prevent "broken" canvas elements
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+        });
+
+        function initCharts() {
+            // Hourly Chart
+            const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+            new Chart(hourlyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
+                    datasets: [{
+                        label: 'IVT Hits',
+                        data: [450, 1200, 300, 400, 800, 1500, 900],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { display: false },
+                        x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } }
+                    }
+                }
+            });
+
+            // Device Chart
+            const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+            new Chart(deviceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Desktop', 'Mobile', 'Tablet', 'Bot/Other'],
+                    datasets: [{
+                        data: [40, 45, 10, 5],
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'],
+                        hoverOffset: 4,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } 
+                        } 
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('audit-content');
+            const btn = document.getElementById('downloadBtn');
+            btn.innerText = "Exporting...";
+            
+            const opt = {
+                margin:       [0.5, 0.5],
+                filename:     'Aqnos-Forensic-Report.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.innerText = "Generate Audit PDF";
+            });
+        }
+    </script>
+
+    <div data-fillout-id="t52YgH5taPus" data-fillout-embed-type="popup" data-fillout-button-text="Join Our Pre Launch" data-fillout-dynamic-resize data-fillout-button-color="#03265E" data-fillout-button-size="large" data-fillout-button-float="bottom-right" data-fillout-inherit-parameters data-fillout-popup-size="large"></div><script src="https://server.fillout.com/embed/v1/"></script>
+</body>
+</html>
